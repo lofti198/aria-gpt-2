@@ -12,14 +12,6 @@ interface StepAnnotation {
   label: string;
 }
 
-function isStep(a: unknown): a is StepAnnotation {
-  return (
-    typeof a === 'object' &&
-    a !== null &&
-    (a as { type?: unknown }).type === 'step'
-  );
-}
-
 function StepPane({ steps }: { steps: StepAnnotation[] }) {
   const [open, setOpen] = useState(true);
 
@@ -59,10 +51,17 @@ export function ChatMessageBubble(props: {
   aiEmoji?: string;
   sources: unknown[];
 }) {
-  const steps =
+  const steps = (
     props.message.role === 'assistant'
-      ? (props.message.annotations ?? []).filter(isStep)
-      : [];
+      ? (props.message.annotations ?? []).filter(
+          (a) =>
+            typeof a === 'object' &&
+            a !== null &&
+            !Array.isArray(a) &&
+            (a as Record<string, unknown>).type === 'step'
+        )
+      : []
+  ) as unknown as StepAnnotation[];
 
   return (
     <div
