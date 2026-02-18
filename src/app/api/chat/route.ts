@@ -23,20 +23,31 @@ export async function POST(req: NextRequest) {
       { streamMode: 'messages' }
     );
 
-    return LangChainAdapter.toDataStreamResponse(
-      (async function* () {
-        for await (const chunk of stream) {
-          const [message, metadata] = chunk as [
-            BaseMessageChunk,
-            Record<string, unknown>,
-          ];
-          // Only stream the synthesizer's output tokens, skip all intermediate nodes
-          if (message.content && metadata.langgraph_node === 'synthesizer') {
-            yield message;
+    // LangChainAdapter.toDataStreamResponse calls .pipeThrough() internally,
+    // so we must wrap filtering logic in a ReadableStream (not an AsyncGenerator).
+    const filteredStream = new ReadableStream<BaseMessageChunk>({
+      async start(controller) {
+        try {
+          for await (const chunk of stream) {
+            const [message, metadata] = chunk as [
+              BaseMessageChunk,
+              Record<string, unknown>,
+            ];
+            // Only stream the synthesizer's output tokens, skip all intermediate nodes
+            if (message.content && metadata.langgraph_node === 'synthesizer') {
+              controller.enqueue(message);
+            }
           }
+        } catch (err) {
+          controller.error(err);
+        } finally {
+          controller.close();
         }
-      })()
-    );
+      },
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return LangChainAdapter.toDataStreamResponse(filteredStream as any);
   } catch (e: unknown) {
     console.error(e);
     const error = e as { message?: string; status?: number };
