@@ -12,6 +12,25 @@ import { ChatMessageBubble } from '@/components/ChatMessageBubble';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/utils/cn';
 
+function ThinkingBubble(props: { emoji?: string }) {
+  return (
+    <div className="rounded-[24px] max-w-[80%] mb-8 flex mr-auto">
+      <div className="mr-4 border bg-secondary -mt-2 rounded-full w-10 h-10 flex-shrink-0 flex items-center justify-center">
+        {props.emoji}
+      </div>
+      <div className="flex items-center gap-1.5 px-2 py-3">
+        {[0, 150, 300].map((delay) => (
+          <span
+            key={delay}
+            className="w-2 h-2 rounded-full bg-foreground/50 animate-bounce"
+            style={{ animationDelay: `${delay}ms` }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ChatMessages(props: {
   messages: Message[];
   emptyStateComponent: ReactNode;
@@ -146,7 +165,7 @@ export function ChatWindow(props: {
   });
 
   function isChatLoading(): boolean {
-    return chat.status === 'streaming';
+    return chat.status === 'submitted' || chat.status === 'streaming';
   }
 
   async function sendMessage(e: FormEvent<HTMLFormElement>) {
@@ -164,12 +183,19 @@ export function ChatWindow(props: {
           chat.messages.length === 0 ? (
             <div>{props.emptyStateComponent}</div>
           ) : (
-            <ChatMessages
-              aiEmoji={props.emoji}
-              messages={chat.messages}
-              emptyStateComponent={props.emptyStateComponent}
-              sourcesForMessages={sourcesForMessages}
-            />
+            <>
+              <ChatMessages
+                aiEmoji={props.emoji}
+                messages={chat.messages}
+                emptyStateComponent={props.emptyStateComponent}
+                sourcesForMessages={sourcesForMessages}
+              />
+              {chat.status === 'submitted' && (
+                <div className="flex flex-col max-w-[768px] mx-auto w-full px-2">
+                  <ThinkingBubble emoji={props.emoji} />
+                </div>
+              )}
+            </>
           )
         }
         footer={

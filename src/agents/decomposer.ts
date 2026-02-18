@@ -3,7 +3,7 @@ import { HumanMessage } from "@langchain/core/messages";
 import { z } from "zod";
 import { MultiAgentStateType, SubQuestion } from "./state";
 
-const model = new ChatOpenAI({ model: "gpt-4o-mini", temperature: 0 });
+const model = new ChatOpenAI({ model: "gpt-4.1-mini", temperature: 0 });
 
 const subQuestionSchema = z.object({
   questions: z.array(

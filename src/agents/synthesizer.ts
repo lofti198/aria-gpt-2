@@ -2,7 +2,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { AIMessage, HumanMessage, BaseMessage } from "@langchain/core/messages";
 import { MultiAgentStateType } from "./state";
 
-const model = new ChatOpenAI({ model: "gpt-4o", temperature: 0.5 });
+const model = new ChatOpenAI({ model: "gpt-4.1-mini", temperature: 0.5 });
 
 function getMessageContent(msg: BaseMessage): string {
   if (typeof msg.content === "string") return msg.content;

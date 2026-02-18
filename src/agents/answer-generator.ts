@@ -1,7 +1,7 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { MultiAgentStateType, SubQuestion } from "./state";
 
-const model = new ChatOpenAI({ model: "gpt-4o", temperature: 0.3 });
+const model = new ChatOpenAI({ model: "gpt-4.1-mini", temperature: 0.3 });
 
 export async function answerGeneratorNode(
   state: MultiAgentStateType
