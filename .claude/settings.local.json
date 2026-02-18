@@ -9,7 +9,8 @@
       "Bash(yarn install:*)",
       "Bash(where:*)",
       "Bash(yarn:*)",
-      "Bash(\"C:\\\\Program Files \\(x86\\)\\\\Yarn\\\\bin\\\\yarn.cmd\" install)"
+      "Bash(\"C:\\\\Program Files \\(x86\\)\\\\Yarn\\\\bin\\\\yarn.cmd\" install)",
+      "Bash(git add:*)"
     ]
   }
 }

@@ -138,6 +138,7 @@ export function ChatWindow(props: {
   emptyStateComponent: ReactNode;
   placeholder?: string;
   emoji?: string;
+  presetQuestions?: string[];
 }) {
   const [sourcesForMessages, setSourcesForMessages] = useState<Record<string, any>>({});
 
@@ -181,7 +182,23 @@ export function ChatWindow(props: {
         contentClassName="py-8 px-2"
         content={
           chat.messages.length === 0 ? (
-            <div>{props.emptyStateComponent}</div>
+            <div>
+              {props.emptyStateComponent}
+              {props.presetQuestions && props.presetQuestions.length > 0 && (
+                <div className="flex flex-col items-center gap-2 mt-6 max-w-[768px] mx-auto w-full">
+                  {props.presetQuestions.map((q) => (
+                    <button
+                      key={q}
+                      onClick={() => chat.append({ role: 'user', content: q })}
+                      disabled={isChatLoading()}
+                      className="text-left text-sm border border-border/60 rounded-xl px-4 py-2.5 hover:bg-secondary/60 transition-colors w-full max-w-lg text-muted-foreground disabled:opacity-50"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : (
             <>
               <ChatMessages
