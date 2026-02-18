@@ -4,7 +4,12 @@
       "Bash(yarn add:*)",
       "Bash(npx next build:*)",
       "Bash(npx tsc:*)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(bun add:*)",
+      "Bash(yarn install:*)",
+      "Bash(where:*)",
+      "Bash(yarn:*)",
+      "Bash(\"C:\\\\Program Files \\(x86\\)\\\\Yarn\\\\bin\\\\yarn.cmd\" install)"
     ]
   }
 }
