@@ -1,7 +1,39 @@
 import { ChatWindow } from '@/components/ChatWindow';
 import { GuideInfoBox } from '@/components/guide/GuideInfoBox';
+import { Button } from '@/components/ui/button';
+import { LogIn, UserPlus } from 'lucide-react';
+import { auth0 } from '../../library/auth0';
 
-export default function Home() {
+export default async function Home() {
+  let session = null;
+  try {
+    session = await auth0.getSession();
+  } catch {
+    // Stale/invalid session cookie — treat as logged out
+  }
+
+  if (!session) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-6">
+        <p className="text-white text-xl">You&apos;re not logged in</p>
+        <div className="flex gap-4">
+          <Button asChild variant="default" size="lg">
+            <a href="/auth/login">
+              <LogIn className="size-4 mr-2" />
+              Log in
+            </a>
+          </Button>
+          <Button asChild variant="secondary" size="lg">
+            <a href="/auth/login?screen_hint=signup">
+              <UserPlus className="size-4 mr-2" />
+              Sign up
+            </a>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const InfoCard = (
     <GuideInfoBox>
       <ul>
