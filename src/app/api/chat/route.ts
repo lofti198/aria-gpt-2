@@ -41,31 +41,48 @@ export async function POST(req: NextRequest) {
     const responseStream = new ReadableStream({
       async start(controller) {
         try {
+          // Use both modes simultaneously:
+          //   'updates' fires for EVERY node that changes state (including
+          //             rag_search / google_search which emit no LLM tokens)
+          //   'messages' fires per LLM token so we can stream the final text
           const stream = await graph.stream(
             { messages },
-            { streamMode: 'messages' }
+            { streamMode: ['updates', 'messages'] }
           );
 
           const seenNodes = new Set<string>();
 
+          const emitStep = (node: string) => {
+            if (seenNodes.has(node) || node.startsWith('__')) return;
+            seenNodes.add(node);
+            const label = STEP_LABELS[node] ?? node;
+            controller.enqueue(
+              encoder.encode(`8:${JSON.stringify([{ type: 'step', node, label }])}\n`)
+            );
+          };
+
           for await (const chunk of stream) {
-            const [message, metadata] = chunk as [
-              BaseMessageChunk,
-              Record<string, unknown>,
-            ];
-            const node = metadata.langgraph_node as string;
+            const [mode, value] = chunk as [string, unknown];
 
-            // Emit one annotation per new node so the UI can show steps
-            if (!seenNodes.has(node)) {
-              seenNodes.add(node);
-              const label = STEP_LABELS[node] ?? node;
-              const annotation = JSON.stringify([{ type: 'step', node, label }]);
-              controller.enqueue(encoder.encode(`8:${annotation}\n`));
-            }
+            if (mode === 'updates') {
+              // value is { nodeName: stateUpdate } — one entry per completed node
+              for (const node of Object.keys(value as Record<string, unknown>)) {
+                emitStep(node);
+              }
+            } else if (mode === 'messages') {
+              const [message, metadata] = value as [
+                BaseMessageChunk,
+                Record<string, unknown>,
+              ];
+              const node = metadata.langgraph_node as string;
 
-            // Only forward synthesizer tokens as visible message content
-            if (node === 'synthesizer' && typeof message.content === 'string' && message.content) {
-              controller.enqueue(encoder.encode(`0:${JSON.stringify(message.content)}\n`));
+              // Catch any LLM node not yet seen via updates
+              emitStep(node);
+
+              // Stream synthesizer tokens as visible message content
+              if (node === 'synthesizer' && typeof message.content === 'string' && message.content) {
+                controller.enqueue(encoder.encode(`0:${JSON.stringify(message.content)}\n`));
+              }
             }
           }
 
