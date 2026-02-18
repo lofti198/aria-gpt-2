@@ -1,10 +1,14 @@
 import { ChatWindow } from '@/components/ChatWindow';
 import { GuideInfoBox } from '@/components/guide/GuideInfoBox';
-import { Button } from '@/components/ui/button';
-import { LogIn, UserPlus } from 'lucide-react';
-import { auth0 } from '../../library/auth0';
+// AUTH DISABLED — imports below unused while auth is off
+// import { Button } from '@/components/ui/button';
+// import { LogIn, UserPlus } from 'lucide-react';
+// import { auth0 } from '../../library/auth0';
 
 export default async function Home() {
+  // AUTH DISABLED — skip session check and always show chat
+  // To re-enable, uncomment the block below and the imports above
+  /*
   let session = null;
   try {
     session = await auth0.getSession();
@@ -33,6 +37,7 @@ export default async function Home() {
       </div>
     );
   }
+  */
 
   const InfoCard = (
     <GuideInfoBox>
