@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LangGraph State Data Flow</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0f1117;
+    color: #e2e8f0;
+    font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+    font-size: 13px;
+    padding: 40px 24px;
+    line-height: 1.5;
+  }
+  h1 {
+    font-family: system-ui, sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    color: #f8fafc;
+    margin-bottom: 8px;
+  }
+  .subtitle {
+    font-family: system-ui, sans-serif;
+    font-size: 13px;
+    color: #64748b;
+    margin-bottom: 48px;
+  }
+
+  .stage { margin-bottom: 12px; }
+
+  .stage-label {
+    font-family: system-ui, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #475569;
+    margin-bottom: 8px;
+  }
+
+  .arrow-down {
+    text-align: center;
+    color: #334155;
+    font-size: 20px;
+    margin: 6px 0;
+    letter-spacing: 2px;
+  }
+
+  .arrow-label {
+    font-family: system-ui, sans-serif;
+    font-size: 11px;
+    color: #475569;
+    text-align: center;
+    margin-top: -4px;
+    margin-bottom: 6px;
+  }
+
+  /* State boxes */
+  .state-box {
+    background: #1e2433;
+    border: 1px solid #2d3748;
+    border-radius: 8px;
+    padding: 16px 20px;
+  }
+
+  .state-box.highlight {
+    border-color: #3b82f6;
+    background: #1a2540;
+  }
+
+  .state-box.success {
+    border-color: #22c55e;
+    background: #0f2318;
+  }
+
+  .field-name { color: #7dd3fc; }
+  .field-type { color: #94a3b8; }
+  .string-val { color: #86efac; }
+  .undef-val { color: #475569; font-style: italic; }
+  .key-val { color: #fbbf24; }
+  .bool-val { color: #f472b6; }
+  .bracket { color: #64748b; }
+  .comment { color: #475569; }
+  .arr-item { margin-left: 20px; }
+  .obj-item { margin-left: 20px; }
+
+  .node-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 4px;
+    font-family: system-ui, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    margin-bottom: 10px;
+  }
+  .badge-init    { background: #1e293b; color: #94a3b8; border: 1px solid #334155; }
+  .badge-decomp  { background: #1e3a5f; color: #7dd3fc; border: 1px solid #3b82f6; }
+  .badge-fanout  { background: #2d1b69; color: #c4b5fd; border: 1px solid #7c3aed; }
+  .badge-pipe    { background: #1c2f1c; color: #86efac; border: 1px solid #16a34a; }
+  .badge-reducer { background: #3b1f0a; color: #fb923c; border: 1px solid #ea580c; }
+  .badge-synth   { background: #1e293b; color: #e2e8f0; border: 1px solid #475569; }
+  .badge-final   { background: #0f2318; color: #4ade80; border: 1px solid #22c55e; }
+
+  /* Fan-out layout */
+  .fanout-container {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .fanout-container .state-box {
+    flex: 1;
+  }
+
+  .fanout-arrows {
+    display: flex;
+    justify-content: space-around;
+    margin: 6px 0;
+    color: #7c3aed;
+    font-size: 16px;
+  }
+
+  .fanin-arrows {
+    display: flex;
+    justify-content: space-around;
+    margin: 6px 0;
+    color: #ea580c;
+    font-size: 16px;
+  }
+
+  /* Reducer explanation */
+  .reducer-box {
+    background: #1a0f00;
+    border: 1px dashed #ea580c;
+    border-radius: 8px;
+    padding: 14px 20px;
+  }
+  .reducer-step {
+    margin: 6px 0;
+    padding-left: 12px;
+    border-left: 2px solid #ea580c;
+  }
+  .reducer-step .step-label {
+    font-family: system-ui, sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #ea580c;
+    letter-spacing: 0.08em;
+    margin-bottom: 2px;
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid #1e293b;
+    margin: 32px 0;
+  }
+
+  .inline-label {
+    font-family: system-ui, sans-serif;
+    font-size: 10px;
+    color: #64748b;
+    margin-left: 8px;
+  }
+
+  .pipe-label {
+    font-family: system-ui, sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    color: #16a34a;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+
+  .added { color: #4ade80; }
+  .changed { color: #fbbf24; }
+  .dimmed { color: #334155; }
+</style>
+</head>
+<body>
+
+<h1>LangGraph — State Data Flow</h1>
+<p class="subtitle">User message: "Как нарастить ресницы? Какие тренды в нейлинге сейчас?"</p>
+
+<!-- ─── STEP 1: INITIAL ─── -->
+<div class="stage">
+  <div class="stage-label">① Graph receives initial input</div>
+  <div class="state-box">
+    <span class="node-badge badge-init">INITIAL STATE</span><br>
+    <span class="field-name">messages</span><span class="bracket">: [</span><br>
+    <span class="arr-item"><span class="string-val">HumanMessage("Как нарастить ресницы? Какие тренды в нейлинге сейчас?")</span></span><br>
+    <span class="bracket">]</span><br>
+    <span class="field-name">subQuestions</span><span class="bracket">: []</span> <span class="comment">← default from Annotation</span>
+  </div>
+</div>
+
+<div class="arrow-down">↓</div>
+<div class="arrow-label">decomposer node runs</div>
+
+<!-- ─── STEP 2: DECOMPOSER RETURNS ─── -->
+<div class="stage">
+  <div class="stage-label">② Decomposer returns — reducer merges</div>
+  <div class="state-box highlight">
+    <span class="node-badge badge-decomp">AFTER DECOMPOSER</span><br>
+    <span class="field-name">messages</span><span class="bracket">: [</span><br>
+    <span class="arr-item"><span class="dimmed">HumanMessage("Как нарастить ресницы? ...")</span></span><br>
+    <span class="bracket">]</span> <span class="comment">← unchanged, decomposer didn't touch messages</span><br>
+    <span class="field-name">subQuestions</span><span class="bracket">: [</span><br>
+    <span class="arr-item"><span class="bracket">{</span> <span class="key-val">id</span>: <span class="string-val">"q_0"</span>, <span class="key-val">question</span>: <span class="string-val">"Как нарастить ресницы?"</span>, <span class="key-val">needsGoogle</span>: <span class="bool-val">false</span> <span class="bracket">}</span><span class="added"> ← new</span></span><br>
+    <span class="arr-item"><span class="bracket">{</span> <span class="key-val">id</span>: <span class="string-val">"q_1"</span>, <span class="key-val">question</span>: <span class="string-val">"Какие тренды в нейлинге?"</span>, <span class="key-val">needsGoogle</span>: <span class="bool-val">true</span> <span class="bracket">}</span><span class="added"> ← new</span></span><br>
+    <span class="bracket">]</span>
+  </div>
+</div>
+
+<div class="arrow-down">↓</div>
+<div class="arrow-label">fanOutToSubQuestions() — creates two Send() copies</div>
+
+<!-- ─── STEP 3: FAN-OUT ─── -->
+<div class="stage">
+  <div class="stage-label">③ Fan-out — two isolated state copies created via Send</div>
+  <div class="fanout-container">
+
+    <div>
+      <div class="pipe-label">PIPELINE 1</div>
+      <div class="state-box">
+        <span class="node-badge badge-fanout">SEND COPY</span><br>
+        <span class="field-name">messages</span><span class="bracket">: [</span><span class="dimmed">...</span><span class="bracket">]</span><br>
+        <span class="field-name">subQuestions</span><span class="bracket">: [</span><br>
+        <span class="arr-item"><span class="bracket">{</span> <span class="key-val">id</span>: <span class="string-val">"q_0"</span>,<br>
+        <span class="obj-item"><span class="key-val">question</span>: <span class="string-val">"Как нарастить ресницы?"</span>,</span><br>
+        <span class="obj-item"><span class="key-val">needsGoogle</span>: <span class="bool-val">false</span>,</span><br>
+        <span class="obj-item"><span class="key-val">ragResults</span>: <span class="undef-val">undefined</span>,</span><br>
+        <span class="obj-item"><span class="key-val">answer</span>: <span class="undef-val">undefined</span> <span class="bracket">}</span></span></span><br>
+        <span class="bracket">]</span>
+      </div>
+    </div>
+
+    <div>
+      <div class="pipe-label">PIPELINE 2</div>
+      <div class="state-box">
+        <span class="node-badge badge-fanout">SEND COPY</span><br>
+        <span class="field-name">messages</span><span class="bracket">: [</span><span class="dimmed">...</span><span class="bracket">]</span><br>
+        <span class="field-name">subQuestions</span><span class="bracket">: [</span><br>
+        <span class="arr-item"><span class="bracket">{</span> <span class="key-val">id</span>: <span class="string-val">"q_1"</span>,<br>
+        <span class="obj-item"><span class="key-val">question</span>: <span class="string-val">"Какие тренды в нейлинге?"</span>,</span><br>
+        <span class="obj-item"><span class="key-val">needsGoogle</span>: <span class="bool-val">true</span>,</span><br>
+        <span class="obj-item"><span class="key-val">ragResults</span>: <span class="undef-val">undefined</span>,</span><br>
+        <span class="obj-item"><span class="key-val">answer</span>: <span class="undef-val">undefined</span> <span class="bracket">}</span></span></span><br>
+        <span class="bracket">]</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="fanout-arrows">
+  <span>↓ rag → google(skip) → answer</span>
+  <span>↓ rag → google(fetch) → answer</span>
+</div>
+<div class="arrow-label">pipelines run in parallel, mutating their own copies</div>
+
+<!-- ─── STEP 4: PIPELINES DONE ─── -->
+<div class="stage">
+  <div class="stage-label">④ Each pipeline finishes — ready to write back</div>
+  <div class="fanout-container">
+
+    <div>
+      <div class="pipe-label">PIPELINE 1 — done</div>
+      <div class="state-box">
+        <span class="node-badge badge-pipe">SUBGRAPH RESULT</span><br>
+        <span class="field-name">subQuestions</span><span class="bracket">: [</span><br>
+        <span class="arr-item"><span class="bracket">{</span> <span class="key-val">id</span>: <span class="string-val">"q_0"</span>,<br>
+        <span class="obj-item"><span class="key-val">question</span>: <span class="string-val">"Как нарастить ресницы?"</span>,</span><br>
+        <span class="obj-item"><span class="key-val">needsGoogle</span>: <span class="bool-val">false</span>,</span><br>
+        <span class="obj-item added"><span class="key-val">ragResults</span>: <span class="string-val">"KB: lash extension types..."</span>,</span><br>
+        <span class="obj-item"><span class="key-val">googleResults</span>: <span class="undef-val">undefined</span>,</span><br>
+        <span class="obj-item added"><span class="key-val">answer</span>: <span class="string-val">"Ресницы наращивают так..."</span> <span class="bracket">}</span></span></span><br>
+        <span class="bracket">]</span>
+      </div>
+    </div>
+
+    <div>
+      <div class="pipe-label">PIPELINE 2 — done</div>
+      <div class="state-box">
+        <span class="node-badge badge-pipe">SUBGRAPH RESULT</span><br>
+        <span class="field-name">subQuestions</span><span class="bracket">: [</span><br>
+        <span class="arr-item"><span class="bracket">{</span> <span class="key-val">id</span>: <span class="string-val">"q_1"</span>,<br>
+        <span class="obj-item"><span class="key-val">question</span>: <span class="string-val">"Какие тренды в нейлинге?"</span>,</span><br>
+        <span class="obj-item"><span class="key-val">needsGoogle</span>: <span class="bool-val">true</span>,</span><br>
+        <span class="obj-item"><span class="key-val">ragResults</span>: <span class="undef-val">undefined</span>,</span><br>
+        <span class="obj-item added"><span class="key-val">googleResults</span>: <span class="string-val">"Trending: glazed nails, chrome..."</span>,</span><br>
+        <span class="obj-item added"><span class="key-val">answer</span>: <span class="string-val">"Тренды 2025: ..."</span> <span class="bracket">}</span></span></span><br>
+        <span class="bracket">]</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="fanin-arrows">
+  <span>↘</span>
+  <span>↙</span>
+</div>
+<div class="arrow-label">both results flow into the reducer</div>
+
+<!-- ─── STEP 5: REDUCER ─── -->
+<div class="stage">
+  <div class="stage-label">⑤ mergeSubQuestions reducer runs (fan-in)</div>
+  <div class="reducer-box">
+    <span class="node-badge badge-reducer">REDUCER CALLED TWICE</span>
+
+    <div class="reducer-step">
+      <div class="step-label">Call 1 — Pipeline 1 writes back</div>
+      <span class="comment">existing</span> = <span class="bracket">[]</span> &nbsp;&nbsp; <span class="comment">incoming</span> = <span class="bracket">[</span><span class="string-val">q_0 with answer</span><span class="bracket">]</span><br>
+      map = <span class="bracket">{</span> <span class="string-val">"q_0"</span> → <span class="bracket">{...}</span> <span class="bracket">}</span><br>
+      result → <span class="bracket">[</span> <span class="added">q_0✓</span> <span class="bracket">]</span>
+    </div>
+
+    <div class="reducer-step">
+      <div class="step-label">Call 2 — Pipeline 2 writes back</div>
+      <span class="comment">existing</span> = <span class="bracket">[</span><span class="string-val">q_0✓</span><span class="bracket">]</span> &nbsp;&nbsp; <span class="comment">incoming</span> = <span class="bracket">[</span><span class="string-val">q_1 with answer</span><span class="bracket">]</span><br>
+      map = <span class="bracket">{</span> <span class="string-val">"q_0"</span> → <span class="bracket">{...}</span>, <span class="string-val">"q_1"</span> → <span class="bracket">{...}</span> <span class="bracket">}</span><br>
+      result → <span class="bracket">[</span> <span class="added">q_0✓, q_1✓</span> <span class="bracket">]</span>
+    </div>
+
+    <br>
+    <span class="comment">LangGraph waits for both pipelines before continuing. Order doesn't matter.</span>
+  </div>
+</div>
+
+<div class="arrow-down">↓</div>
+<div class="arrow-label">synthesizer node runs</div>
+
+<!-- ─── STEP 6: SYNTHESIZER INPUT ─── -->
+<div class="stage">
+  <div class="stage-label">⑥ Synthesizer receives merged parent state</div>
+  <div class="state-box">
+    <span class="node-badge badge-synth">SYNTHESIZER INPUT</span><br>
+    <span class="field-name">messages</span><span class="bracket">: [</span><br>
+    <span class="arr-item"><span class="dimmed">HumanMessage("Как нарастить ресницы? ...")</span></span><br>
+    <span class="bracket">]</span><br>
+    <span class="field-name">subQuestions</span><span class="bracket">: [</span><br>
+    <span class="arr-item"><span class="bracket">{</span> <span class="key-val">id</span>: <span class="string-val">"q_0"</span>, <span class="key-val">answer</span>: <span class="string-val">"Ресницы наращивают так..."</span> <span class="bracket">}</span></span><br>
+    <span class="arr-item"><span class="bracket">{</span> <span class="key-val">id</span>: <span class="string-val">"q_1"</span>, <span class="key-val">answer</span>: <span class="string-val">"Тренды 2025: ..."</span> <span class="bracket">}</span></span><br>
+    <span class="bracket">]</span>
+  </div>
+</div>
+
+<div class="arrow-down">↓</div>
+<div class="arrow-label">synthesizer calls LLM, returns AIMessage → messages reducer appends it</div>
+
+<!-- ─── STEP 7: FINAL ─── -->
+<div class="stage">
+  <div class="stage-label">⑦ Final state</div>
+  <div class="state-box success">
+    <span class="node-badge badge-final">FINAL STATE</span><br>
+    <span class="field-name">messages</span><span class="bracket">: [</span><br>
+    <span class="arr-item"><span class="dimmed">HumanMessage("Как нарастить ресницы? ...")</span></span><br>
+    <span class="arr-item added">AIMessage("По ресницам: наращивание делается... По трендам: в 2025 году популярны...")</span><br>
+    <span class="bracket">]</span><br>
+    <span class="field-name">subQuestions</span><span class="bracket">: [</span><br>
+    <span class="arr-item"><span class="dimmed">{ q_0 with answer }</span></span><br>
+    <span class="arr-item"><span class="dimmed">{ q_1 with answer }</span></span><br>
+    <span class="bracket">]</span> <span class="comment">← still here, synthesizer already used them</span>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ─── REDUCER SUMMARY ─── -->
+<div class="stage">
+  <div class="stage-label">Reducer summary — what ran and when</div>
+  <div class="state-box">
+    <span class="node-badge badge-reducer">ALL REDUCER CALLS IN ORDER</span><br><br>
+    <span class="comment"># Field: messages (MessagesAnnotation built-in — appends)</span><br>
+    <span class="field-name">synthesizer</span> returns AIMessage → <span class="added">appended to messages[]</span><br><br>
+    <span class="comment"># Field: subQuestions (your mergeSubQuestions — merges by id)</span><br>
+    <span class="field-name">decomposer</span>&nbsp;&nbsp; returns [q_0, q_1]    → <span class="added">merged into []       → [q_0, q_1]</span><br>
+    <span class="field-name">pipeline_1</span>&nbsp;&nbsp; returns [q_0+answer] → <span class="added">merged into [q_0,q_1] → [q_0✓, q_1]</span><br>
+    <span class="field-name">pipeline_2</span>&nbsp;&nbsp; returns [q_1+answer] → <span class="added">merged into [q_0✓,q_1] → [q_0✓, q_1✓]</span>
+  </div>
+</div>
+
+</body>
+</html>
