@@ -41,14 +41,22 @@ export default async function Home() {
 
   const InfoCard = (
     <GuideInfoBox>
-     Beauty assistant
+      <p
+        className="text-gradient text-2xl font-medium mb-2"
+        style={{ fontFamily: "'Playfair Display', serif" }}
+      >
+        Aria Beauty Assistant
+      </p>
+      <p className="text-muted-foreground text-sm">
+        Beauty × Technology × Creativity
+      </p>
     </GuideInfoBox>
   );
   return (
     <ChatWindow
       endpoint="api/chat"
-      emoji="🤖"
-      placeholder="I'm your personal assistant. How can I help you today?"
+      emoji="✨"
+      placeholder="Спросите меня о красоте, уходе за собой и последних трендах..."
       emptyStateComponent={InfoCard}
       presetQuestions={[
         'Как наращивать ресницы? Какие тренды в нейлинге сейчас?',

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/38097/source/repos/ariabeauty-craft/src/**)",
+      "Read(//c/Users/38097/source/repos/ariabeauty-craft/**)"
+    ]
+  }
+}
